@@ -1,18 +1,14 @@
-# Use official Node image
-FROM node:18-alpine
+FROM node:20.11.1
 
-# Set working directory
 WORKDIR /app
 
-# Copy package.json and install dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 
-# Copy source code
 COPY . .
 
-# Expose port (match your app's port)
-EXPOSE 5000
+ENV PORT=5000
 
-# Start app
-CMD ["npm", "start"]
+RUN npx prisma generate
+
+CMD ["node", "src/index.js"]

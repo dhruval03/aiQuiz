@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: ai-quizzer-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: ai_quizzer
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: ai-quizzer-app
+    restart: always
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+
+volumes:
+  pgdata:

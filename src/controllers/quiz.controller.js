@@ -268,3 +268,47 @@ export const retryQuiz = async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+// Bonus Features 
+
+const hintInputSchema = z.object({
+  quizId: z.string().uuid(),
+  questionId: z.string()
+});
+
+export const getHintForQuestion = async (req, res) => {
+    try {
+        const { quizId, questionId } = req.params;
+
+        const quiz = await prisma.quiz.findUnique({ where: { id: quizId } });
+
+        if (!quiz) {
+            return res.status(404).json({ error: 'Quiz not found' });
+        }
+
+        const question = quiz.questions.find(q => q.questionId === questionId);
+
+        if (!question) {
+            return res.status(404).json({ error: 'Question not found in quiz' });
+        }
+
+        const prompt = `Provide a helpful hint (not the answer) for the following question:\n\n"${question.question}"\nOptions: ${question.options.join(', ')}`;
+
+        const response = await openai.chat.completions.create({
+            model: 'llama3-70b-8192',
+            messages: [
+                { role: 'system', content: 'You are a helpful tutor providing hints.' },
+                { role: 'user', content: prompt }
+            ],
+            temperature: 0.5
+        });
+
+        const hint = response.choices[0]?.message?.content?.trim();
+
+        return res.status(200).json({ hint });
+
+    } catch (err) {
+        console.error('[Hint Generation Error]', err);
+        res.status(500).json({ error: 'Failed to generate hint' });
+    }
+};
