@@ -7,7 +7,7 @@ Each question should include:
 - "question" (the actual question)
 - "options" (4 choices: A, B, C, D)
 - "correct" (multiple correct answer)
-- ✅ "explanation" (short explanation why the correct answer is right)
+- "explanation" (short explanation why the correct answer is right)
 
 Respond ONLY in valid JSON array format:
 

@@ -7,7 +7,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: admin123
+      POSTGRES_PASSWORD: YOUR_PASSWORD
       POSTGRES_DB: ai_quizzer
     ports:
       - "5432:5432"

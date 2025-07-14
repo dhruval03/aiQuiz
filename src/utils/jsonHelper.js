@@ -9,7 +9,6 @@ export function extractJSONArray(aiContent) {
 
     let raw = aiContent.slice(start, end);
 
-    // 🧹 Cleanup common formatting issues
     raw = raw
       .replace(/\n/g, '')
       .replace(/\r/g, '')
@@ -20,23 +19,19 @@ export function extractJSONArray(aiContent) {
       .replace(/\\'/g, "'")
       .replace(/\\n/g, '')
       .replace(/\\"/g, '"')
-      .replace(/([a-zA-Z])":\s*\[\[/g, '$1": [['); // Fix nested matrices
+      .replace(/([a-zA-Z])":\s*\[\[/g, '$1": [['); 
 
     const parsed = JSON.parse(raw);
 
     const questions = parsed.map((q, i) => {
       let correct = q.correct;
 
-      // 🧠 Normalize correct answers:
       if (Array.isArray(correct)) {
-        // If it's triple-nested, unwrap once: [[[...]]] -> [[...]]
         if (correct.length === 1 && Array.isArray(correct[0]) && Array.isArray(correct[0][0])) {
           correct = correct[0];
         }
 
-        // If it's still a matrix, keep as-is (matrix answer)
         if (Array.isArray(correct[0])) {
-          // Likely a matrix like [[a, b], [c, d]]
           return {
             questionId: q.questionId || `Q-${i + 1}`,
             question: String(q.question).trim(),
@@ -46,7 +41,6 @@ export function extractJSONArray(aiContent) {
           };
         }
 
-        // Else: it's a normal MCQ with multiple correct options
         correct = correct.map(opt => String(opt));
       } else {
         correct = [String(correct)];

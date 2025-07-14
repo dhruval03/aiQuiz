@@ -37,7 +37,6 @@ export const generateQuiz = async (req, res) => {
             return res.status(500).json({ error: 'AI returned invalid JSON format' });
         }
 
-        // ✅ Auto calculate max score
         const maxScore = generatedQuestions.reduce((sum, q) => {
             const correct = q.correct;
             return sum + (Array.isArray(correct) ? correct.length : 1);
@@ -109,7 +108,7 @@ export const submitQuiz = async (req, res) => {
       }
     });
 
-    // 🔥 Generate AI Suggestions based on performance
+    // Generate AI Suggestions based on performance
     const feedbackPrompt = `
 A student scored ${score} out of ${quiz.maxScore} on a grade ${quiz.grade} ${quiz.subject} quiz.
 Based on this performance, suggest TWO specific topics or skills they should focus on to improve.
@@ -127,7 +126,7 @@ Provide suggestions in plain bullet points.
 
     const suggestions = feedbackAI.choices[0]?.message?.content?.trim() || 'No suggestions available.';
 
-    // 📧 Send Email
+    // Send Email
     const emailContent = `
       <h2>Quiz Result: ${quiz.subject} (Grade ${quiz.grade})</h2>
       <p>Dear ${user.username},</p>
@@ -195,7 +194,6 @@ export const getQuizHistory = async (req, res) => {
             }
         });
 
-        // Apply quiz-based filtering in JS
         const filtered = submissions.filter(sub => {
             const quiz = sub.quiz;
             if (grade && quiz.grade !== grade.toString()) return false;
@@ -259,7 +257,7 @@ export const retryQuiz = async (req, res) => {
       }
     });
 
-    // 🔁 AI Feedback Prompt
+    // AI Feedback Prompt
     const feedbackPrompt = `
 A student retried a quiz and scored ${score} out of ${quiz.maxScore} on a grade ${quiz.grade} ${quiz.subject} quiz.
 Based on this performance, suggest TWO specific areas or skills they should focus on to improve.
@@ -277,7 +275,7 @@ Respond with clear bullet points.
 
     const suggestions = aiFeedback.choices[0]?.message?.content?.trim() || 'No suggestions available.';
 
-    // 📧 Send Retry Email
+    // Send Retry Email
     const emailContent = `
       <h2>Retried Quiz Result: ${quiz.subject} (Grade ${quiz.grade})</h2>
       <p>Hi ${user.username},</p>
@@ -310,8 +308,6 @@ Respond with clear bullet points.
     res.status(500).json({ error: 'Internal server error' });
   }
 };
-
-// Bonus Features 
 
 const hintInputSchema = z.object({
   quizId: z.string().uuid(),

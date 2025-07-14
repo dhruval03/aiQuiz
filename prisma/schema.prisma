@@ -31,7 +31,7 @@ model Quiz {
   maxScore    Int
   questions   Json
   createdAt   DateTime      @default(now())
-  createdBy   String?       // Optional admin/user who created it
+  createdBy   String?
   submissions Submission[]
 }
 
