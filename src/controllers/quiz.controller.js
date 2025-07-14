@@ -4,6 +4,7 @@ import { z } from 'zod';
 import openai from '../utils/groq.js';
 import { buildPrompt } from '../utils/promptBuilder.js';
 import { extractJSONArray } from '../utils/jsonHelper.js';
+import { sendResultEmail } from '../utils/email.js';
 
 const quizInputSchema = z.object({
     grade: z.number().min(1).max(12),
@@ -76,63 +77,88 @@ const submissionInputSchema = z.object({
 
 
 export const submitQuiz = async (req, res) => {
-    try {
-        const { quizId, answers } = submissionInputSchema.parse(req.body);
+  try {
+    const { quizId, answers } = submissionInputSchema.parse(req.body);
 
-        const quiz = await prisma.quiz.findUnique({ where: { id: quizId } });
+    const quiz = await prisma.quiz.findUnique({ where: { id: quizId } });
+    if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
 
-        if (!quiz) {
-            return res.status(404).json({ error: 'Quiz not found' });
-        }
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user || !user.email) return res.status(400).json({ error: 'User email not found' });
 
-        const questions = quiz.questions;
-        let score = 0;
+    let score = 0;
+    const questions = quiz.questions;
 
-        answers.forEach(response => {
-            const question = questions.find(q => q.questionId === response.questionId);
-            if (!question) return;
+    answers.forEach(ans => {
+      const q = questions.find(q => q.questionId === ans.questionId);
+      if (!q) return;
 
-            const correct = question.correct;
-            const userAnswer = response.userResponse;
+      const correctAnswers = Array.isArray(q.correct) ? q.correct : [q.correct];
+      const userResponses = Array.isArray(ans.userResponse) ? ans.userResponse : [ans.userResponse];
 
-            // Normalize both to arrays
-            const correctAnswers = Array.isArray(correct) ? [...correct].sort() : [correct];
-            const userAnswers = Array.isArray(userAnswer) ? [...userAnswer].sort() : [userAnswer];
+      const correctCount = userResponses.filter(r => correctAnswers.includes(r)).length;
+      score += correctCount;
+    });
 
-            // Full match = correct
-            const isCorrect = (
-                correctAnswers.length === userAnswers.length &&
-                correctAnswers.every((val, index) => val === userAnswers[index])
-            );
+    const submission = await prisma.submission.create({
+      data: {
+        quizId,
+        userId: req.user.id,
+        answers,
+        score
+      }
+    });
 
-            if (isCorrect) score++;
-        });
+    // 🔥 Generate AI Suggestions based on performance
+    const feedbackPrompt = `
+A student scored ${score} out of ${quiz.maxScore} on a grade ${quiz.grade} ${quiz.subject} quiz.
+Based on this performance, suggest TWO specific topics or skills they should focus on to improve.
+Provide suggestions in plain bullet points.
+`;
 
-        const submission = await prisma.submission.create({
-            data: {
-                quizId,
-                userId: req.user.id,
-                answers: answers,
-                score
-            }
-        });
+    const feedbackAI = await openai.chat.completions.create({
+      model: 'llama3-70b-8192',
+      messages: [
+        { role: 'system', content: 'You are a helpful tutor providing feedback.' },
+        { role: 'user', content: feedbackPrompt }
+      ],
+      temperature: 0.6
+    });
 
-        return res.status(201).json({
-            message: 'Quiz submitted successfully',
-            score,
-            total: questions.length,
-            submission
-        });
+    const suggestions = feedbackAI.choices[0]?.message?.content?.trim() || 'No suggestions available.';
 
-    } catch (err) {
-        console.error('[Submit Quiz Error]', err);
+    // 📧 Send Email
+    const emailContent = `
+      <h2>Quiz Result: ${quiz.subject} (Grade ${quiz.grade})</h2>
+      <p>Dear ${user.username},</p>
+      <p>You scored <strong>${score}</strong> out of <strong>${quiz.maxScore}</strong>.</p>
+      <h3>Suggestions to Improve:</h3>
+      <pre>${suggestions}</pre>
+      <br/>
+      <p>Keep learning!</p>
+      <p><strong>AI Quizzer Team</strong></p>
+    `;
 
-        if (err.name === 'ZodError') {
-            return res.status(400).json({ error: 'Invalid input', details: err.errors });
-        }
+    await sendResultEmail({
+      to: user.email,
+      subject: 'Your Quiz Result & Suggestions',
+      html: emailContent
+    });
 
-        return res.status(500).json({ error: 'Something went wrong' });
+    return res.status(201).json({
+      message: 'Quiz submitted successfully and result emailed.',
+      score,
+      total: quiz.maxScore,
+      submission
+    });
+
+  } catch (err) {
+    console.error('[Submit Quiz Error]', err);
+    if (err.name === 'ZodError') {
+      return res.status(400).json({ error: 'Invalid input', details: err.errors });
     }
+    return res.status(500).json({ error: 'Something went wrong' });
+  }
 };
 
 
@@ -200,73 +226,89 @@ const retryInputSchema = z.object({
 
 
 export const retryQuiz = async (req, res) => {
-    try {
-        const { quizId } = req.params;
-        const { answers } = retryInputSchema.parse(req.body);
+  try {
+    const { quizId } = req.params;
+    const { answers } = retryInputSchema.parse(req.body);
 
-        const quiz = await prisma.quiz.findUnique({ where: { id: quizId } });
+    const quiz = await prisma.quiz.findUnique({ where: { id: quizId } });
+    if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
 
-        if (!quiz) {
-            return res.status(404).json({ error: 'Quiz not found' });
-        }
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user || !user.email) return res.status(400).json({ error: 'User email not found' });
 
-        const questions = quiz.questions;
-        let score = 0;
+    const questions = quiz.questions;
+    let score = 0;
 
-        answers.forEach(res => {
-            const q = questions.find(q => q.questionId === res.questionId);
-            if (!q) return;
+    answers.forEach(ans => {
+      const q = questions.find(q => q.questionId === ans.questionId);
+      if (!q) return;
 
-            const correctAnswer = q.correct;
-            const userAnswer = res.userResponse;
+      const correctAnswers = Array.isArray(q.correct) ? q.correct : [q.correct];
+      const userResponses = Array.isArray(ans.userResponse) ? ans.userResponse : [ans.userResponse];
 
-            // Match exact string
-            if (typeof correctAnswer[0] === 'string' && typeof userAnswer === 'string') {
-                if (correctAnswer.includes(userAnswer)) score += 1;
-            }
+      const correctCount = userResponses.filter(r => correctAnswers.includes(r)).length;
+      score += correctCount;
+    });
 
-            // Match multiple correct options
-            else if (Array.isArray(userAnswer) && typeof userAnswer[0] === 'string') {
-                const correctSet = new Set(correctAnswer);
-                const userSet = new Set(userAnswer);
+    const newSubmission = await prisma.submission.create({
+      data: {
+        quizId,
+        userId: req.user.id,
+        answers,
+        score
+      }
+    });
 
-                const intersection = [...userSet].filter(x => correctSet.has(x));
-                const partialScore = intersection.length;
-                score += partialScore;
-            }
+    // 🔁 AI Feedback Prompt
+    const feedbackPrompt = `
+A student retried a quiz and scored ${score} out of ${quiz.maxScore} on a grade ${quiz.grade} ${quiz.subject} quiz.
+Based on this performance, suggest TWO specific areas or skills they should focus on to improve.
+Respond with clear bullet points.
+`;
 
-            // Match matrix answer (deep equality)
-            else if (Array.isArray(userAnswer) && Array.isArray(userAnswer[0])) {
-                const stringify = obj => JSON.stringify(obj);
-                if (stringify(userAnswer) === stringify(correctAnswer)) {
-                    score += 1;
-                }
-            }
-        });
+    const aiFeedback = await openai.chat.completions.create({
+      model: 'llama3-70b-8192',
+      messages: [
+        { role: 'system', content: 'You are a helpful tutor giving retry quiz feedback.' },
+        { role: 'user', content: feedbackPrompt }
+      ],
+      temperature: 0.6
+    });
 
-        const newSubmission = await prisma.submission.create({
-            data: {
-                quizId,
-                userId: req.user.id,
-                answers: answers,
-                score
-            }
-        });
+    const suggestions = aiFeedback.choices[0]?.message?.content?.trim() || 'No suggestions available.';
 
-        res.status(201).json({
-            message: 'Quiz retried and submitted successfully',
-            score,
-            total: questions.length,
-            submission: newSubmission
-        });
+    // 📧 Send Retry Email
+    const emailContent = `
+      <h2>Retried Quiz Result: ${quiz.subject} (Grade ${quiz.grade})</h2>
+      <p>Hi ${user.username},</p>
+      <p>You retried the quiz and scored <strong>${score}</strong> out of <strong>${quiz.maxScore}</strong>.</p>
+      <h3>Suggestions to Improve Further:</h3>
+      <pre>${suggestions}</pre>
+      <br/>
+      <p>Keep working hard and improving!</p>
+      <p><strong>AI Quizzer Team</strong></p>
+    `;
 
-    } catch (err) {
-        console.error('[Retry Quiz Error]', err);
-        if (err.name === 'ZodError') {
-            return res.status(400).json({ error: 'Invalid input', details: err.errors });
-        }
-        res.status(500).json({ error: 'Internal server error' });
+    await sendResultEmail({
+      to: user.email,
+      subject: 'Your Retried Quiz Result & Feedback',
+      html: emailContent
+    });
+
+    res.status(201).json({
+      message: 'Retried quiz submitted and email sent successfully.',
+      score,
+      total: quiz.maxScore,
+      submission: newSubmission
+    });
+
+  } catch (err) {
+    console.error('[Retry Quiz Error]', err);
+    if (err.name === 'ZodError') {
+      return res.status(400).json({ error: 'Invalid input', details: err.errors });
     }
+    res.status(500).json({ error: 'Internal server error' });
+  }
 };
 
 // Bonus Features 
