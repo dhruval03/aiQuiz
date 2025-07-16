@@ -70,6 +70,15 @@ Your API will be running at:
 
 ---
 
+### *Docker Setup (Optional)**
+If you prefer to run this project using Docker, follow these steps:
+
+Build and Run the Project
+```bash
+docker-compose up --build
+```
+🔄 This will start both the backend server and PostgreSQL container
+
 ## 📩 Postman Collection
 
 Import this Postman collection to try all endpoints:
@@ -82,7 +91,7 @@ Import this Postman collection to try all endpoints:
 | Endpoint                             | Method | Description                                           |
 | ------------------------------------ | ------ | ----------------------------------------------------- |
 | `/api/auth/login`                    | `POST` | Mock login for first-time, validates on repeat logins |
-| `/api/quiz`                          | `POST` | Generate new quiz (AI)                                |
+| `/api/quiz/generate`                 | `POST` | Generate new quiz (AI)                                |
 | `/api/quiz/submit`                   | `POST` | Submit quiz responses                                 |
 | `/api/quiz/retry`                    | `POST` | Retry quiz with new responses                         |
 | `/api/quiz/history`                  | `GET`  | Fetch quiz history (with filters)                     |
