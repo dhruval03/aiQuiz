@@ -1,19 +1,27 @@
 import { generateToken } from '../utils/jwt.util.js';
 import prisma from '../config/db.js';
+import bcrypt from 'bcrypt';
 
 export const login = async (req, res) => {
   try {
-    const { username, email } = req.body;
+    const { username, email, password } = req.body;
 
     let user = await prisma.user.findUnique({ where: { username } });
 
     if (!user) {
-      user = await prisma.user.create({ data: { username, email } });
-    } else if(!user.email && email) {
+      const hashPassword = await bcrypt.hash(password,10);
+      user = await prisma.user.create({ data: { username, email, password:hashPassword } });
+    } else {
+      const valid = await bcrypt.compare(password, user.password);
+      if(!valid){
+        return res.status(401).json({error: 'Invalid Password'});
+      }
+      if(!user.email && email) {
       user = await prisma.user.update({
           where: { username },
           data: { email }
         });
+      }
     }
 
     const token = generateToken({ id: user.id, username: user.username });
