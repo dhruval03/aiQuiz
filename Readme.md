@@ -70,7 +70,7 @@ Your API will be running at:
 
 ---
 
-### *Docker Setup (Optional)**
+### 🐳 **Docker Setup (Optional)**
 If you prefer to run this project using Docker, follow these steps:
 
 Build and Run the Project
@@ -78,6 +78,17 @@ Build and Run the Project
 docker-compose up --build
 ```
 🔄 This will start both the backend server and PostgreSQL container
+
+for create the database in container
+```bash
+docker exec -it ai-quizzer-db psql -U postgres
+CREATE DATABASE "aiQuizApp";
+```
+
+for prism in docker 
+```bash
+docker exec -it ai-quizzer-app npx prisma db push
+```
 
 ## 📩 Postman Collection
 
