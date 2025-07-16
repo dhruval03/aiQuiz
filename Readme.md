@@ -31,8 +31,8 @@ An intelligent quiz microservice powered by AI that allows students to attempt q
 ### 🔧 1. Clone the repo
 
 ```bash
-git clone https://github.com/yourusername/ai-quizzer-api.git
-cd ai-quizzer-api
+git clone https://github.com/dhruval03/aiQuiz.git
+cd aiQuiz
 ```
 
 ---
@@ -52,14 +52,6 @@ Create a `.env` file in root from .env.example:
 ---
 
 ### 🚤 4. Setup Prisma
-
-#### Option 1: If first time or resetting DB:
-
-```bash
-npx prisma db push --force-reset
-```
-
-#### Option 2: Otherwise:
 
 ```bash
 npx prisma db push
@@ -81,7 +73,7 @@ Your API will be running at:
 ## 📩 Postman Collection
 
 Import this Postman collection to try all endpoints:
-**[Download AI Quizzer.postman\_collection.json](../AI%20Quiz%20App.postman_collection.json)**
+**[Download AI Quizzer.postman\_collection.json](./docs/AI%20Quiz%20App.postman_collection.json)**
 
 ---
 
